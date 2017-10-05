@@ -62,6 +62,7 @@ int strEq(char* str1, char* str2)
 int main(int argc, char **argv, char **envp)
 {
   int index;
+  int fullpath = 0;
   int amtRead;
   int pid;
   int status;
@@ -82,6 +83,9 @@ int main(int argc, char **argv, char **envp)
       s[1] = ' ';
       write(1,s,2);
       amtRead = read(0,buf, BUFLEN);
+      if(amtRead == 0){
+	exit(0);
+      }
       buf[amtRead-1] = '\0';
       command =  mytoc(buf,' ');
       if(strEq(command[0],"exit"))  /*exit if you read exit*/
@@ -95,14 +99,25 @@ int main(int argc, char **argv, char **envp)
 	  pathVar = mytoc(envp[index],'=');
 	  path = mytoc(pathVar[1],':');
 	  commandRead = command[0];
-	  commandRead = concat("/",commandRead);  /*setup the possible paths and the executable directory*/
+	  if(commandRead[0] != '/'){              /*setup the possible paths and the executable directory*/
+	     commandRead = concat("/",commandRead);
+	     fullpath = 1;
+	  }
 	  while((*path) != '\0')                  /*try the mashup in every possible path*/
 	    {
-	      pathConcat = concat(*path,commandRead);
-	      command[0] = pathConcat;
-	      status = execve(pathConcat,command,envp);
-	      if(status != -1) exit(0);      
-	      path++;
+	      if(fullpath)
+		{
+		status = execve(pathConcat,command,envp);
+		if(status != -1) break; 
+		}
+	      else
+		{
+		pathConcat = concat(*path,commandRead);
+		command[0] = pathConcat;
+		status = execve(pathConcat,command,envp);
+		if(status != -1) exit(0);      
+		path++;
+		}
 	    }
 	  if(status < 0)                          /*If you reach here command wasn't found*/
 	    {
