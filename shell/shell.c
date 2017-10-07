@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <sys/wait.h>
 #include "mytoc.h"
+#include <errno.h>
 
 #define BUFLEN 1000
 
@@ -59,6 +60,120 @@ int strEq(char* str1, char* str2)
   return 1;
 }
 
+int is_builtin(char* command)
+{
+  if(strEq(command, "exit"))
+    {
+      exit(0);
+    }
+  else if(strEq(command, "cd"))
+    {
+      return 1;
+    }
+  return 0;
+}
+
+int execute_command(char** commandLine, char** envp)
+{
+  int status = 0;
+  int index;
+  char** pathVar;
+  char** path;
+  char* commandRead;
+  char* pathConcat;
+  if(commandLine[0][0] == '/')
+    {
+      status =  execve(commandLine[0],commandLine,envp);
+      if(status == -1){
+	return -1;
+      }
+      else return 0;
+    }
+  else
+    {
+      index = findPathIndex(envp);
+      pathVar = mytoc(envp[index], '=');
+      path = mytoc(pathVar[1], ':');
+      commandRead = commandLine[0];
+      commandRead = concat("/",commandRead);
+      while(*path != '\0')
+	{
+	  pathConcat = concat(*path,commandRead);
+	  commandLine[0] = pathConcat;
+	  status = execve(pathConcat, commandLine, envp);
+	  if(status !=  -1)
+	    {
+	      return 0;
+	    }
+	  path++;
+	}
+      if(status < 0)
+	{
+	  return 1;
+	}
+      }  
+}
+
+
+int main(int argc, char **argv, char **envp)
+{
+  setenv("PS1", "$ ",0);
+  char* PS1 = getenv("PS1");
+  int pid;
+  int amount_read;
+  char buffer[BUFLEN];
+  char** commandLine;
+  int status;
+  while(1){
+    write(1,getenv("PS1"), 2);
+    amount_read = read(0,buffer,BUFLEN);
+    if(amount_read == 0){
+      exit(0);
+    }
+    commandLine = mytoc(buffer, ' ');
+    if(is_builtin(commandLine[0]))
+      {
+	if(chdir(commandLine[1])!=0)
+	  {
+	    write(2, "Error while changing directory.",31);
+	  }
+	continue;
+      }
+    else
+      {
+	pid = fork();
+	if(pid == 0)
+	  {
+	    status = execute_command(commandLine, envp);
+	    if(status < 0)
+	      {
+		write(2,"Command finished with error number.\n",36);
+		exit(1);
+	      }
+		else if(status > 0)
+	      {
+		write(2,"Command not found.\n",19);
+		exit(1);
+	      }
+	    else
+	      {
+		exit(0);
+	      }
+	  }
+	else if(pid < 0)
+	  {
+	    write(2,"Fork failed.\n",13);
+	  }
+	else
+	  {
+	    wait(NULL);
+	  }
+      }
+  }
+}
+
+
+/*
 int main(int argc, char **argv, char **envp)
 {
   int index;
@@ -88,7 +203,7 @@ int main(int argc, char **argv, char **envp)
       }
       buf[amtRead-1] = '\0';
       command =  mytoc(buf,' ');
-      if(strEq(command[0],"exit"))  /*exit if you read exit*/
+      if(strEq(command[0],"exit"))  //exit if you read exit
 	{
 	  break;
 	}
@@ -99,11 +214,11 @@ int main(int argc, char **argv, char **envp)
 	  pathVar = mytoc(envp[index],'=');
 	  path = mytoc(pathVar[1],':');
 	  commandRead = command[0];
-	  if(commandRead[0] != '/'){              /*setup the possible paths and the executable directory*/
+	  if(commandRead[0] != '/'){              //setup the possible paths and the executable directory
 	     commandRead = concat("/",commandRead);
 	     fullpath = 1;
 	  }
-	  while((*path) != '\0')                  /*try the mashup in every possible path*/
+	  while((*path) != '\0')                  //try the mashup in every possible path
 	    {
 	      if(fullpath)
 		{
@@ -119,7 +234,7 @@ int main(int argc, char **argv, char **envp)
 		path++;
 		}
 	    }
-	  if(status < 0)                          /*If you reach here command wasn't found*/
+	  if(status < 0)                          //If you reach here command wasn't found
 	    {
 	      write(1, error, 20);
 	    }
@@ -131,3 +246,4 @@ int main(int argc, char **argv, char **envp)
 	}
     }
 }
+ */
