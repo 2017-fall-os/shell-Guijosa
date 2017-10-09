@@ -64,6 +64,7 @@ int strEq(char* str1, char* str2)
   return 1;
 }
 
+/* Checks if the inputted command is  built-in shell comamand*/
 int is_builtin(char* command)
 {
   if(strEq(command, "exit"))
@@ -77,6 +78,7 @@ int is_builtin(char* command)
   return 0;
 }
 
+/*Executes the command inputed*/
 int execute_command(char** commandLine, char** envp)
 {
   int status = 0;
@@ -85,22 +87,25 @@ int execute_command(char** commandLine, char** envp)
   char** path;
   char* commandRead;
   char* pathConcat;
-  if(commandLine[0][0] == '/')
+  if(commandLine[0][0] == '/') /*if its full path*/
     {
       status =  execve(commandLine[0],commandLine,envp);
       if(status == -1){
+	return 1;
+      }
+      if(status > 0){
 	return -1;
       }
       else return 0;
     }
-  else
+  else  /*Its not full path*/
     {
       index = findPathIndex(envp);
-      pathVar = mytoc(envp[index], '=');
-      path = mytoc(pathVar[1], ':');
+      pathVar = mytoc(envp[index], '='); /*find the path*/
+      path = mytoc(pathVar[1], ':');    
       commandRead = commandLine[0];
       commandRead = concat("/",commandRead);
-      while(*path != '\0')
+      while(*path != '\0') /*search through all possible paths*/
 	{
 	  pathConcat = concat(*path,commandRead);
 	  commandLine[0] = pathConcat;
@@ -109,9 +114,13 @@ int execute_command(char** commandLine, char** envp)
 	    {
 	      return 0;
 	    }
+	  if(status > 0)
+	    {
+	      return -1;
+	    }
 	  path++;
 	}
-      if(status < 0)
+      if(status < 0)/*you reach here command not found*/
 	{
 	  return 1;
 	}
@@ -120,21 +129,21 @@ int execute_command(char** commandLine, char** envp)
 
 void pipe_handler(char** commandLine, char** envp)
 {
-  char** command1 = mytoc(commandLine[0],' ');
+  char** command1 = mytoc(commandLine[0],' '); 
   char** command2 = mytoc(commandLine[1],' ');
   int fd[2];
   int childpid;
-  pipe(fd);
+  pipe(fd); //create a pipe
   childpid = fork();
-  if(childpid == 0)
+  if(childpid == 0)  //for the first command send the result to the pipe
     {
       close(1);
-      close(fd[0]);
+      close(fd[0]);     
       dup(fd[1]);
       execute_command(command1,envp);
       exit(0);
     }
-  else
+  else  //for the second command take in the input from the pipe
     {
       close(0);
       close(fd[1]);
@@ -157,22 +166,22 @@ int main(int argc, char **argv, char **envp)
   int is_bg = 0;
   int PS1len = tokenlen(getenv("PS1"),' ');
   while(1){
-    write(1,getenv("PS1"), PS1len);
+    write(1,getenv("PS1"), PS1len);     //prompt writing
     amount_read = read(0,buffer,BUFLEN);
-    if(amount_read == 0){
+    if(amount_read == 0){               //stop with EOF
       exit(0);
     }
     buffer[amount_read] = '\0';
-    //if(buffer[amount_read-2] == '&' )
+    //if(buffer[amount_read-2] == '&' )   //code commented out due to causing errors
     //{
     //	is_bg = 1;
     //	buffer[amount_read-2] = '\0';
     //  }
-    commandLine = mytoc(buffer, '|');
-    if(commandLine[1])
+    commandLine = mytoc(buffer, '|'); //tokenize for pipeline
+    if(commandLine[1])                //if there was a pipeline
       {
 	pid = fork();
-	if(pid ==0)
+	if(pid ==0)               //child handles the piping
 	  {
 	    pipe_handler(commandLine, envp);
 	    exit(0);
@@ -183,22 +192,22 @@ int main(int argc, char **argv, char **envp)
 	  }
 	continue;
       }
-    commandLine = mytoc(buffer, ' ');
+    commandLine = mytoc(buffer, ' '); //execute a normal command
     if(is_builtin(commandLine[0]))
       {
-	if(chdir(commandLine[1])!=0)
+	if(chdir(commandLine[1])!=0) //if command was cd and failed
 	  {
 	    write(2, "Error while changing directory.",31);
 	  }
 	continue;
       }
-    if(*commandLine[0] == '\0'){
+    if(*commandLine[0] == '\0'){    //if no input continue
       continue;
     }
     else
       {
 	pid = fork();
-	if(pid == 0)
+	if(pid == 0) //child executes command
 	  {
 	    status = execute_command(commandLine, envp);
 	    if(status < 0)
@@ -216,13 +225,13 @@ int main(int argc, char **argv, char **envp)
 		exit(0);
 	      }
 	  }
-	else if(pid < 0)
+	else if(pid < 0) //fork fail check
 	  {
 	    write(2,"Fork failed.\n",13);
 	  }
-	else
+	else // wait for child
 	  {
-	    //   if(!is_bg)
+	    //   if(!is_bg)     //code commented out due to causing errors
 	      // {
 		wait(NULL);
 		// }
