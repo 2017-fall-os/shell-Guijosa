@@ -48,6 +48,10 @@ int strEq(char* str1, char* str2)
 {
   char* iterator;
   char* iterator2 = str2;
+  if(*str1 == '\0')
+    {
+      return 0;
+    }
   for(iterator = str1; *iterator != '\0'; iterator++)
     {
       if(*iterator == *iterator2){
@@ -114,6 +118,32 @@ int execute_command(char** commandLine, char** envp)
       }  
 }
 
+void pipe_handler(char** commandLine, char** envp)
+{
+  char** command1 = mytoc(commandLine[0],' ');
+  char** command2 = mytoc(commandLine[1],' ');
+  int fd[2];
+  int childpid;
+  pipe(fd);
+  childpid = fork();
+  if(childpid == 0)
+    {
+      close(1);
+      close(fd[0]);
+      dup(fd[1]);
+      execute_command(command1,envp);
+      exit(0);
+    }
+  else
+    {
+      close(0);
+      close(fd[1]);
+      dup(fd[0]);
+      wait(NULL);
+      execute_command(command2,envp);
+    } 
+}
+
 
 int main(int argc, char **argv, char **envp)
 {
@@ -124,12 +154,29 @@ int main(int argc, char **argv, char **envp)
   char buffer[BUFLEN];
   char** commandLine;
   int status;
+  int is_bg;
   while(1){
     write(1,getenv("PS1"), 2);
     amount_read = read(0,buffer,BUFLEN);
     if(amount_read == 0){
       exit(0);
     }
+    buffer[amount_read] = '\0';
+    commandLine = mytoc(buffer, '|');
+    if(commandLine[1])
+      {
+	pid = fork();
+	if(pid ==0)
+	  {
+	    pipe_handler(commandLine, envp);
+	    exit(0);
+	  }
+	else
+	  {
+	    wait(NULL);
+	  }
+	continue;
+      }
     commandLine = mytoc(buffer, ' ');
     if(is_builtin(commandLine[0]))
       {
@@ -139,6 +186,9 @@ int main(int argc, char **argv, char **envp)
 	  }
 	continue;
       }
+    if(*commandLine[0] == '\0'){
+      continue;
+    }
     else
       {
 	pid = fork();
@@ -169,7 +219,7 @@ int main(int argc, char **argv, char **envp)
 	    wait(NULL);
 	  }
       }
-  }
+    }
 }
 
 
