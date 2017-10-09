@@ -154,14 +154,20 @@ int main(int argc, char **argv, char **envp)
   char buffer[BUFLEN];
   char** commandLine;
   int status;
-  int is_bg;
+  int is_bg = 0;
+  int PS1len = tokenlen(getenv("PS1"),' ');
   while(1){
-    write(1,getenv("PS1"), 2);
+    write(1,getenv("PS1"), PS1len);
     amount_read = read(0,buffer,BUFLEN);
     if(amount_read == 0){
       exit(0);
     }
     buffer[amount_read] = '\0';
+    //if(buffer[amount_read-2] == '&' )
+    //{
+    //	is_bg = 1;
+    //	buffer[amount_read-2] = '\0';
+    //  }
     commandLine = mytoc(buffer, '|');
     if(commandLine[1])
       {
@@ -216,7 +222,11 @@ int main(int argc, char **argv, char **envp)
 	  }
 	else
 	  {
-	    wait(NULL);
+	    //   if(!is_bg)
+	      // {
+		wait(NULL);
+		// }
+	    //	    is_bg = 0;
 	  }
       }
     }
