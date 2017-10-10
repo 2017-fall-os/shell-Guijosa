@@ -172,11 +172,11 @@ int main(int argc, char **argv, char **envp)
       exit(0);
     }
     buffer[amount_read] = '\0';
-    //if(buffer[amount_read-2] == '&' )   //code commented out due to causing errors
-    //{
-    //	is_bg = 1;
-    //	buffer[amount_read-2] = '\0';
-    //  }
+    if(buffer[amount_read-2] == '&' )   //code commented out due to causing errors
+      {
+	is_bg = 1;
+    	buffer[amount_read-2] = '\0';
+      }
     commandLine = mytoc(buffer, '|'); //tokenize for pipeline
     if(commandLine[1])                //if there was a pipeline
       {
@@ -231,11 +231,15 @@ int main(int argc, char **argv, char **envp)
 	  }
 	else // wait for child
 	  {
-	    //   if(!is_bg)     //code commented out due to causing errors
-	      // {
-		wait(NULL);
-		// }
-	    //	    is_bg = 0;
+	    if(!is_bg)     //code commented out due to causing errors
+	       {
+		int terminated_pid = wait(NULL);
+		if(pid != terminated_pid)
+		  {
+		    wait(NULL);
+		  }
+	       }
+	    is_bg = 0;
 	  }
       }
     }
